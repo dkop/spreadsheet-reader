@@ -1530,7 +1530,6 @@ class Spreadsheet_Excel_Reader {
                             $string	= substr($data, $spos+9, $strlen);
                         } else {
                             $string	= $this->_encodeUTF16(substr($data, $spos+9, $strlen*2));
-                            $length += $strlen;
                         }
                     }elseif ($version == SPREADSHEET_EXCEL_READER_BIFF7){
                         $string = substr($data, $spos + 8, $strlen);
