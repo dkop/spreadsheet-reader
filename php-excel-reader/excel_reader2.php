@@ -1522,17 +1522,18 @@ class Spreadsheet_Excel_Reader {
 					$row	= ord($data[$spos]) | ord($data[$spos+1])<<8;
 					$column = ord($data[$spos+2]) | ord($data[$spos+3])<<8;
 
-                    $length = ord($data[$spos + 6]) | ord($data[$spos + 7])<<8;
+                    $strlen = ord($data[$spos + 6]) | ord($data[$spos + 7])<<8;
 
                     if ($version == SPREADSHEET_EXCEL_READER_BIFF8){
                         $chartype =  ord($data[$spos+8]);
                         if ($chartype == 0){
-                            $string	= substr($data, $spos+9, $length);
+                            $string	= substr($data, $spos+9, $strlen);
                         } else {
-                            $string	= $this->_encodeUTF16(substr($data, $spos+9, $length*2));
+                            $string	= $this->_encodeUTF16(substr($data, $spos+9, $strlen*2));
+                            $length += $strlen;
                         }
                     }elseif ($version == SPREADSHEET_EXCEL_READER_BIFF7){
-                        $string = substr($data, $spos + 8, $length);
+                        $string = substr($data, $spos + 8, $strlen);
                     }
 
 					$this->addcell($row, $column, $string);
