@@ -885,7 +885,7 @@ class Spreadsheet_Excel_Reader {
 		}
 
 		// Handle the number itself
-		$number_regex = "/^(\d+)(\.?)(\d*)/";
+        $number_regex = "/(\d+)(\.?)(\d*)/";
 		if (preg_match($number_regex,$pattern,$matches)) {
 			$left = $matches[1];
 			$dec = $matches[2];
@@ -1136,7 +1136,7 @@ class Spreadsheet_Excel_Reader {
 						if (ord($data[$pos+8]) == 0){
 							$formatString = substr($data, $pos+9, $numchars);
 						} else {
-							$formatString = substr($data, $pos+9, $numchars*2);
+                            $formatString = $this->_encodeUTF16(substr($data, $pos+9, $numchars*2));
 						}
 					} else {
 						$numchars = ord($data[$pos+6]);
