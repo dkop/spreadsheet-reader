@@ -304,6 +304,7 @@ define('SPREADSHEET_EXCEL_READER_TYPE_COLINFO',	     0x7d);
 define('SPREADSHEET_EXCEL_READER_TYPE_DEFCOLWIDTH',  0x55);
 define('SPREADSHEET_EXCEL_READER_TYPE_STANDARDWIDTH', 0x99);
 define('SPREADSHEET_EXCEL_READER_DEF_NUM_FORMAT',	"%s");
+define('SPREADSHEET_EXCEL_READER_UTF8_CODEPAGE', 1200);
 
 
 /*
@@ -318,6 +319,11 @@ class Spreadsheet_Excel_Reader {
 	var $defaultColWidth = 0;
 
 	var $codePage;
+
+	function isTranslationNeeded()
+    {
+        return isset($this->codePage);
+    }
 
 	var $encodings = array(
 	    1251 => 'CP1251',
@@ -1285,9 +1291,13 @@ class Spreadsheet_Excel_Reader {
 					$this->nineteenFour = (ord($data[$pos+4]) == 1);
 					break;
 				case SPREADSHEET_EXCEL_READER_TYPE_CODEPAGE:
-					$this->codePage = v($data, $pos + 4);
-					if (!isset($this->encodings[$this->codePage])) {
-					    throw new RuntimeException('I don\' know about codepage ' . $this->codePage);
+                    $codePage = v($data, $pos + 4);
+				    if ($codePage == SPREADSHEET_EXCEL_READER_UTF8_CODEPAGE) {
+                        break;
+                    }
+                    $this->codePage = $codePage;
+				    if (!isset($this->encodings[$this->codePage])) {
+					    throw new RuntimeException('I don\'t know about codepage ' . $this->codePage);
                     }
 					break;
 				case SPREADSHEET_EXCEL_READER_TYPE_BOUNDSHEET:
@@ -1305,7 +1315,7 @@ class Spreadsheet_Excel_Reader {
 							}
 						} elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
 								$rec_name	= substr($data, $pos+11, $rec_length);
-								if (isset($this->codePage)) {
+								if ($this->isTranslationNeeded()) {
 								    $rec_name = $this->_encode($rec_name, $this->encodings[$this->codePage]);
                                 }
 						}
@@ -1502,7 +1512,7 @@ class Spreadsheet_Excel_Reader {
 						$numChars =ord($data[$xpos]) | (ord($data[$xpos+1]) << 8);
 						$xpos += 2;
 						$retstr = substr($data, $xpos, $numChars);
-                        if (isset($this->codePage)) {
+                        if ($this->isTranslationNeeded()) {
                             $retstr = $this->_encode($retstr, $this->encodings[$this->codePage]);
                         }
                     }
@@ -1545,7 +1555,7 @@ class Spreadsheet_Excel_Reader {
                         }
                     }elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
                         $string = substr($data, $spos + 8, $strlen);
-                        if (isset($this->codePage)) {
+                        if ($this->isTranslationNeeded()) {
                             $string = $this->_encode($string, $this->encodings[$this->codePage]);
                         }
                     }
