@@ -262,6 +262,7 @@ define('SPREADSHEET_EXCEL_READER_BIFF8',			 0x600);
 define('SPREADSHEET_EXCEL_READER_BIFF7',			 0x500);
 define('SPREADSHEET_EXCEL_READER_WORKBOOKGLOBALS',   0x5);
 define('SPREADSHEET_EXCEL_READER_WORKSHEET',		 0x10);
+define('SPREADSHEET_EXCEL_READER_TYPE_CODEPAGE',	  0x042);
 define('SPREADSHEET_EXCEL_READER_TYPE_BOF',		  0x809);
 define('SPREADSHEET_EXCEL_READER_TYPE_EOF',		  0x0a);
 define('SPREADSHEET_EXCEL_READER_TYPE_BOUNDSHEET',   0x85);
@@ -315,6 +316,12 @@ class Spreadsheet_Excel_Reader {
 	var $colindexes = array();
 	var $standardColWidth = 0;
 	var $defaultColWidth = 0;
+
+	var $codePage;
+
+	var $encodings = array(
+	    1251 => 'CP1251',
+    );
 
 	function myHex($d) {
 		if ($d < 16) return "0" . dechex($d);
@@ -1110,7 +1117,7 @@ class Spreadsheet_Excel_Reader {
 								$spos += $len;
 							}
 						}
-						$retstr = ($asciiEncoding) ? $retstr : $this->_encodeUTF16($retstr);
+						$retstr = ($asciiEncoding) ? $retstr : $this->_encode($retstr);
 
 						if ($richString){
 							$spos += 4 * $formattingRuns;
@@ -1135,7 +1142,7 @@ class Spreadsheet_Excel_Reader {
 						if (ord($data[$pos+8]) == 0){
 							$formatString = substr($data, $pos+9, $numchars);
 						} else {
-                            $formatString = $this->_encodeUTF16(substr($data, $pos+9, $numchars*2));
+                            $formatString = $this->_encode(substr($data, $pos+9, $numchars*2));
 						}
 					} else {
 						$numchars = ord($data[$pos+6]);
@@ -1156,7 +1163,7 @@ class Spreadsheet_Excel_Reader {
 						    $font = substr($data, $pos+20, $numchars);
 						} else {
 						    $font = substr($data, $pos+20, $numchars*2);
-						    $font =  $this->_encodeUTF16($font); 
+						    $font =  $this->_encode($font);
 						}
 						$this->fontRecords[] = array(
 								'height' => $height / 20,
@@ -1277,6 +1284,12 @@ class Spreadsheet_Excel_Reader {
 				case SPREADSHEET_EXCEL_READER_TYPE_NINETEENFOUR:
 					$this->nineteenFour = (ord($data[$pos+4]) == 1);
 					break;
+				case SPREADSHEET_EXCEL_READER_TYPE_CODEPAGE:
+					$this->codePage = v($data, $pos + 4);
+					if (!isset($this->encodings[$this->codePage])) {
+					    throw new RuntimeException('I don\' know about codepage ' . $this->codePage);
+                    }
+					break;
 				case SPREADSHEET_EXCEL_READER_TYPE_BOUNDSHEET:
 						$rec_offset = $this->_GetInt4d($data, $pos+4);
 						$rec_typeFlag = ord($data[$pos+8]);
@@ -1288,10 +1301,13 @@ class Spreadsheet_Excel_Reader {
 							if ($chartype == 0){
 								$rec_name	= substr($data, $pos+12, $rec_length);
 							} else {
-								$rec_name	= $this->_encodeUTF16(substr($data, $pos+12, $rec_length*2));
+								$rec_name	= $this->_encode(substr($data, $pos+12, $rec_length*2));
 							}
 						} elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
 								$rec_name	= substr($data, $pos+11, $rec_length);
+								if (isset($this->codePage)) {
+								    $rec_name = $this->_encode($rec_name, $this->encodings[$this->codePage]);
+                                }
 						}
 					$this->boundsheets[] = array('name'=>$rec_name,'offset'=>$rec_offset);
 					break;
@@ -1320,12 +1336,12 @@ class Spreadsheet_Excel_Reader {
 		$code = ord($data[$spos]) | ord($data[$spos+1])<<8;
 		$length = ord($data[$spos+2]) | ord($data[$spos+3])<<8;
 
-//		$version = ord($data[$spos + 4]) | ord($data[$spos + 5])<<8;
+		$version = ord($data[$spos + 4]) | ord($data[$spos + 5])<<8;
 		$substreamType = ord($data[$spos + 6]) | ord($data[$spos + 7])<<8;
 
-//		if (($version != SPREADSHEET_EXCEL_READER_BIFF8) && ($version != SPREADSHEET_EXCEL_READER_BIFF7)) {
-//			return -1;
-//		}
+		if (($version != SPREADSHEET_EXCEL_READER_BIFF8) && ($version != SPREADSHEET_EXCEL_READER_BIFF7)) {
+			return -1;
+		}
 
 		if ($substreamType != SPREADSHEET_EXCEL_READER_WORKSHEET){
 			return -2;
@@ -1478,15 +1494,18 @@ class Spreadsheet_Excel_Reader {
 						$len = ($asciiEncoding)?$numChars : $numChars*2;
 						$retstr =substr($data, $xpos, $len);
 						$xpos += $len;
-						$retstr = ($asciiEncoding)? $retstr : $this->_encodeUTF16($retstr);
+						$retstr = ($asciiEncoding)? $retstr : $this->_encode($retstr);
 					}
 					elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
 						// Simple byte string
 						$xpos = $spos;
 						$numChars =ord($data[$xpos]) | (ord($data[$xpos+1]) << 8);
 						$xpos += 2;
-						$retstr =substr($data, $xpos, $numChars);
-					}
+						$retstr = substr($data, $xpos, $numChars);
+                        if (isset($this->codePage)) {
+                            $retstr = $this->_encode($retstr, $this->encodings[$this->codePage]);
+                        }
+                    }
 					$this->addcell($previousRow, $previousCol, $retstr);
 					break;
 				case SPREADSHEET_EXCEL_READER_TYPE_ROW:
@@ -1522,10 +1541,13 @@ class Spreadsheet_Excel_Reader {
                         if ($chartype == 0){
                             $string	= substr($data, $spos+9, $strlen);
                         } else {
-                            $string	= $this->_encodeUTF16(substr($data, $spos+9, $strlen*2));
+                            $string	= $this->_encode(substr($data, $spos+9, $strlen*2));
                         }
                     }elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
                         $string = substr($data, $spos + 8, $strlen);
+                        if (isset($this->codePage)) {
+                            $string = $this->_encode($string, $this->encodings[$this->codePage]);
+                        }
                     }
 
 					$this->addcell($row, $column, $string);
@@ -1559,7 +1581,7 @@ class Spreadsheet_Excel_Reader {
 						}
 					}
 					$linkdata['desc'] = $udesc;
-					$linkdata['link'] = $this->_encodeUTF16($ulink);
+					$linkdata['link'] = $this->_encode($ulink);
 					for ($r=$row; $r<=$row2; $r++) { 
 						for ($c=$column; $c<=$column2; $c++) {
 							$this->sheets[$this->sn]['cellsInfo'][$r+1][$c+1]['hyperlink'] = $linkdata;
@@ -1718,13 +1740,13 @@ class Spreadsheet_Excel_Reader {
 		return $value;
 	}
 
-	function _encodeUTF16($string) {
+	function _encode($string, $from = 'UTF-16LE') {
 		$result = $string;
 		if ($this->_defaultEncoding){
 			switch ($this->_encoderFunction){
-				case 'iconv' :	 $result = iconv('UTF-16LE', $this->_defaultEncoding, $string);
+				case 'iconv' :	 $result = iconv($from, $this->_defaultEncoding, $string);
 								break;
-				case 'mb_convert_encoding' :	 $result = mb_convert_encoding($string, $this->_defaultEncoding, 'UTF-16LE' );
+				case 'mb_convert_encoding' :	 $result = mb_convert_encoding($string, $this->_defaultEncoding, $from );
 								break;
 			}
 		}
