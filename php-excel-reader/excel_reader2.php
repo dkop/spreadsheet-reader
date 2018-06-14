@@ -661,6 +661,7 @@ class Spreadsheet_Excel_Reader {
 	var $sst = array();
 	var $sheets = array();
 
+	var $version;
 	var $data;
 	var $_ole;
 	var $_defaultEncoding = "UTF-8";
@@ -994,13 +995,11 @@ class Spreadsheet_Excel_Reader {
 
 		$code = v($data,$pos);
 		$length = v($data,$pos+2);
-		$version = v($data,$pos+4);
+        $this->version = v($data,$pos+4);
 		$substreamType = v($data,$pos+6);
 
-		$this->version = $version;
-
-		if (($version != SPREADSHEET_EXCEL_READER_BIFF8) &&
-			($version != SPREADSHEET_EXCEL_READER_BIFF7)) {
+		if (($this->version != SPREADSHEET_EXCEL_READER_BIFF8) &&
+			($this->version != SPREADSHEET_EXCEL_READER_BIFF7)) {
 			return false;
 		}
 
@@ -1131,7 +1130,7 @@ class Spreadsheet_Excel_Reader {
 					break;
 				case SPREADSHEET_EXCEL_READER_TYPE_FORMAT:
 					$indexCode = v($data,$pos+4);
-					if ($version == SPREADSHEET_EXCEL_READER_BIFF8) {
+					if ($this->version == SPREADSHEET_EXCEL_READER_BIFF8) {
 						$numchars = v($data,$pos+6);
 						if (ord($data[$pos+8]) == 0){
 							$formatString = substr($data, $pos+9, $numchars);
@@ -1284,14 +1283,14 @@ class Spreadsheet_Excel_Reader {
 						$rec_visibilityFlag = ord($data[$pos+9]);
 						$rec_length = ord($data[$pos+10]);
 
-						if ($version == SPREADSHEET_EXCEL_READER_BIFF8){
+						if ($this->version == SPREADSHEET_EXCEL_READER_BIFF8){
 							$chartype =  ord($data[$pos+11]);
 							if ($chartype == 0){
 								$rec_name	= substr($data, $pos+12, $rec_length);
 							} else {
 								$rec_name	= $this->_encodeUTF16(substr($data, $pos+12, $rec_length*2));
 							}
-						}elseif ($version == SPREADSHEET_EXCEL_READER_BIFF7){
+						} elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
 								$rec_name	= substr($data, $pos+11, $rec_length);
 						}
 					$this->boundsheets[] = array('name'=>$rec_name,'offset'=>$rec_offset);
@@ -1321,12 +1320,12 @@ class Spreadsheet_Excel_Reader {
 		$code = ord($data[$spos]) | ord($data[$spos+1])<<8;
 		$length = ord($data[$spos+2]) | ord($data[$spos+3])<<8;
 
-		$version = ord($data[$spos + 4]) | ord($data[$spos + 5])<<8;
+//		$version = ord($data[$spos + 4]) | ord($data[$spos + 5])<<8;
 		$substreamType = ord($data[$spos + 6]) | ord($data[$spos + 7])<<8;
 
-		if (($version != SPREADSHEET_EXCEL_READER_BIFF8) && ($version != SPREADSHEET_EXCEL_READER_BIFF7)) {
-			return -1;
-		}
+//		if (($version != SPREADSHEET_EXCEL_READER_BIFF8) && ($version != SPREADSHEET_EXCEL_READER_BIFF7)) {
+//			return -1;
+//		}
 
 		if ($substreamType != SPREADSHEET_EXCEL_READER_WORKSHEET){
 			return -2;
@@ -1344,7 +1343,7 @@ class Spreadsheet_Excel_Reader {
 			switch ($code) {
 				case SPREADSHEET_EXCEL_READER_TYPE_DIMENSION:
 					if (!isset($this->numRows)) {
-						if (($length == 10) ||  ($version == SPREADSHEET_EXCEL_READER_BIFF7)){
+						if (($length == 10) ||  ($this->version == SPREADSHEET_EXCEL_READER_BIFF7)){
 							$this->sheets[$this->sn]['numRows'] = ord($data[$spos+2]) | ord($data[$spos+3]) << 8;
 							$this->sheets[$this->sn]['numCols'] = ord($data[$spos+6]) | ord($data[$spos+7]) << 8;
 						} else {
@@ -1455,7 +1454,7 @@ class Spreadsheet_Excel_Reader {
 					break;
                 case SPREADSHEET_EXCEL_READER_TYPE_STRING:
 					// http://code.google.com/p/php-excel-reader/issues/detail?id=4
-					if ($version == SPREADSHEET_EXCEL_READER_BIFF8){
+					if ($this->version == SPREADSHEET_EXCEL_READER_BIFF8){
 						// Unicode 16 string, like an SST record
 						$xpos = $spos;
 						$numChars =ord($data[$xpos]) | (ord($data[$xpos+1]) << 8);
@@ -1481,7 +1480,7 @@ class Spreadsheet_Excel_Reader {
 						$xpos += $len;
 						$retstr = ($asciiEncoding)? $retstr : $this->_encodeUTF16($retstr);
 					}
-					elseif ($version == SPREADSHEET_EXCEL_READER_BIFF7){
+					elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
 						// Simple byte string
 						$xpos = $spos;
 						$numChars =ord($data[$xpos]) | (ord($data[$xpos+1]) << 8);
@@ -1518,14 +1517,14 @@ class Spreadsheet_Excel_Reader {
 
                     $strlen = ord($data[$spos + 6]) | ord($data[$spos + 7])<<8;
 
-                    if ($version == SPREADSHEET_EXCEL_READER_BIFF8){
+                    if ($this->version == SPREADSHEET_EXCEL_READER_BIFF8){
                         $chartype =  ord($data[$spos+8]);
                         if ($chartype == 0){
                             $string	= substr($data, $spos+9, $strlen);
                         } else {
                             $string	= $this->_encodeUTF16(substr($data, $spos+9, $strlen*2));
                         }
-                    }elseif ($version == SPREADSHEET_EXCEL_READER_BIFF7){
+                    }elseif ($this->version == SPREADSHEET_EXCEL_READER_BIFF7){
                         $string = substr($data, $spos + 8, $strlen);
                     }
 
