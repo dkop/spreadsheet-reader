@@ -370,17 +370,7 @@
 				$this -> Sheets = array();
 				foreach ($this -> WorkbookXML -> sheets -> sheet as $Index => $Sheet)
 				{
-					$Attributes = $Sheet -> attributes('r', true);
-					foreach ($Attributes as $Name => $Value)
-					{
-						if ($Name == 'id')
-						{
-							$SheetID = (int)str_replace('rId', '', (string)$Value);
-							break;
-						}
-					}
-
-					$this -> Sheets[$SheetID] = (string)$Sheet['name'];
+					$this->Sheets[(string)$Sheet['sheetId']] = (string)$Sheet['name'];
 				}
 				ksort($this -> Sheets);
 			}
