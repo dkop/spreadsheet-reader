@@ -416,7 +416,7 @@
 			{
 				if ($this -> SharedStrings -> name == 'sst')
 				{
-					$this -> SharedStringCount = $this -> SharedStrings -> getAttribute('count');
+					$this -> SharedStringCount = $this -> SharedStrings -> getAttribute('uniqueCount');
 					break;
 				}
 			}
